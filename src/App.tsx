@@ -55,11 +55,11 @@ export function App({ basePath = '/core', initialPath, onNavigate }: AppProps) {
   useEffect(() => {
     const handlePopState = () => {
       const currentPath = window.location.pathname;
-      
+
       // Only handle if path is under our basePath
       if (currentPath.startsWith(basePath)) {
         const relativePath = currentPath.slice(basePath.length) || '/';
-        
+
         // Navigate router to match the URL
         router.navigate(relativePath).catch((error: Error) => {
           console.error('Failed to sync navigation:', error);

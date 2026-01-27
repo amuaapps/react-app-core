@@ -1,6 +1,6 @@
 /**
  * Remote Entry Point
- * 
+ *
  * This file is the entry point for the remote app when loaded by the shell.
  * It exposes window.remoteApp_core with the contract v1 interface.
  */

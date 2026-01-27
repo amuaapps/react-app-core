@@ -10,7 +10,9 @@ describe('Remote Entry', () => {
   });
 
   it('exposes window.remoteApp_core', () => {
-    const globalWindow = window as typeof window & { remoteApp_core?: { contractVersion: string } };
+    const globalWindow = window as typeof window & {
+      remoteApp_core?: { contractVersion: string };
+    };
     expect(globalWindow.remoteApp_core).toBeDefined();
     expect(globalWindow.remoteApp_core?.contractVersion).toBe('1');
   });

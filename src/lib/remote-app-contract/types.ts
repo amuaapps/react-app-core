@@ -1,6 +1,6 @@
 /**
  * Remote App Contract v1
- * 
+ *
  * This contract defines the interface between the shell and remote applications.
  * Each remote app must implement this contract to be mountable by the shell.
  */
