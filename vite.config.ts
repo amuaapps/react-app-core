@@ -46,20 +46,10 @@ export default defineConfig({
     target: 'esnext',
     minify: false,
     cssCodeSplit: false,
-    rollupOptions: {
-      input: {
-        main: './index.html',
-        remoteEntry: './src/remoteEntry.ts',
-      },
-      output: {
-        entryFileNames: (chunkInfo) => {
-          // Keep remoteEntry.js stable (non-hashed) for shell to load
-          if (chunkInfo.name === 'remoteEntry') {
-            return 'remoteEntry.js';
-          }
-          return 'assets/[name]-[hash].js';
-        },
-      },
-    },
+    // Module Federation plugin handles remoteEntry.js generation
+    // The plugin automatically outputs:
+    // - dist/remoteEntry.js (stable, non-hashed)
+    // - dist/index.html (SPA entry point)
+    // - dist/assets/* (hashed chunks and assets)
   },
 });

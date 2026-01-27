@@ -101,6 +101,26 @@ To test integration with the shell:
 2. Serve the `dist` folder
 3. Configure shell to load `remoteEntry.js` from your local server
 
+## Build Output
+
+The production build creates both a standalone SPA and a remote entry for shell consumption:
+
+```
+dist/
+├── index.html                    # SPA entry point for standalone debugging
+├── remoteEntry.js                # Stable (non-hashed) remote entry for shell
+├── assets/
+│   ├── style-*.css              # Hashed stylesheets
+│   ├── index-*.js               # Hashed SPA chunks
+│   ├── __federation_*.js        # Module Federation runtime chunks
+│   └── __federation_expose_Bootstrap-*.js  # Exposed bootstrap module
+```
+
+**Key files:**
+- `remoteEntry.js` - Stable filename for shell to load (exposes `window.remoteApp_core`)
+- `index.html` - Serves the app as standalone SPA for local testing and smoke tests
+- `assets/*` - All other chunks are hashed for cache busting
+
 ## Deployment
 
 Deployments follow the 4-stage pipeline:
