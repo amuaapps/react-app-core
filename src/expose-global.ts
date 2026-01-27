@@ -1,6 +1,6 @@
 /**
  * Global Exposure Entry Point
- * 
+ *
  * This file is loaded by remoteEntry.js to expose window.remoteApp_core
  * It must be imported/executed when the remote module loads
  */
