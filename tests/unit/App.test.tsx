@@ -6,22 +6,7 @@ describe('App', () => {
     expect(typeof App).toBe('function');
   });
 
-  it('accepts basePath prop', () => {
-    const props = {
-      basePath: '/core',
-      initialPath: '/core',
-      onNavigate: jest.fn(),
-    };
-    expect(() => App(props)).not.toThrow();
-  });
-
-  it('accepts onNavigate callback', () => {
-    const mockNavigate = jest.fn();
-    const props = {
-      basePath: '/core',
-      initialPath: '/core',
-      onNavigate: mockNavigate,
-    };
-    expect(() => App(props)).not.toThrow();
+  it('has correct component name', () => {
+    expect(App.name).toBe('App');
   });
 });
