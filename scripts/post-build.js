@@ -30,15 +30,16 @@ if (!bootstrapFile) {
 }
 
 // Append auto-initialization code
-// Use absolute path from the current script's location
+// The remoteEntry.js is a module, so we can use import.meta.url at the top level
 const autoInitCode = `
 
 // Auto-initialize window.remoteApp_core
+// Capture import.meta.url at module top level before async function
+const __remoteEntryUrl = import.meta.url;
 (async function() {
   try {
-    // Get the base URL from the current script location
-    const scriptUrl = document.currentScript?.src || import.meta.url;
-    const baseUrl = scriptUrl.substring(0, scriptUrl.lastIndexOf('/') + 1);
+    // Get the base URL from the module's import.meta.url
+    const baseUrl = __remoteEntryUrl.substring(0, __remoteEntryUrl.lastIndexOf('/') + 1);
     const bootstrapUrl = baseUrl + '${bootstrapFile}';
     
     const bootstrap = await import(bootstrapUrl);
