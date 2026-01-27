@@ -1,0 +1,605 @@
+name: Deploy Pipeline - React App Core
+
+on:
+  push:
+    branches: [develop, release, main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: false
+        type: choice
+        options:
+          - auto
+          - dev
+          - staging
+          - prod
+        default: auto
+      cloud:
+        description: 'Cloud provider'
+        required: false
+        type: choice
+        options:
+          - auto
+          - azure
+          - aws
+        default: auto
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ============================================================================
+  # Stage 0: Context Resolution
+  # ============================================================================
+  context:
+    name: Resolve Context
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.resolve.outputs.environment }}
+      cloud_input: ${{ steps.resolve.outputs.cloud_input }}
+    
+    steps:
+      - name: Resolve environment from branch
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.environment }}" != "auto" ]; then
+            ENV="${{ inputs.environment }}"
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            ENV="prod"
+          elif [ "${{ github.ref }}" == "refs/heads/release" ]; then
+            ENV="staging"
+          else
+            ENV="dev"
+          fi
+          
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "Resolved environment: $ENV"
+          
+          CLOUD_INPUT="${{ inputs.cloud || 'auto' }}"
+          echo "cloud_input=$CLOUD_INPUT" >> $GITHUB_OUTPUT
+          echo "Cloud input: $CLOUD_INPUT"
+
+  # ============================================================================
+  # Stage 0: Cloud Selection
+  # ============================================================================
+  decide:
+    name: Decide Cloud Provider
+    runs-on: ubuntu-latest
+    needs: context
+    outputs:
+      cloud: ${{ steps.decide.outputs.cloud }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Determine cloud provider
+        id: decide
+        run: |
+          CLOUD_INPUT="${{ needs.context.outputs.cloud_input }}"
+          
+          # Check if AWS is requested
+          if [ "$CLOUD_INPUT" == "aws" ]; then
+            echo "::error::AWS deployment is not implemented for this repo yet. Use cloud=azure or cloud=auto."
+            exit 1
+          fi
+          
+          # Check what infrastructure exists
+          HAS_AZURE=false
+          HAS_AWS=false
+          
+          if [ -d "infra/azure" ] && [ -f "infra/azure/main.bicep" ]; then
+            HAS_AZURE=true
+          fi
+          
+          if [ -d "infra/aws" ] && [ -f "infra/aws/main.tf" ]; then
+            HAS_AWS=true
+          fi
+          
+          # Determine cloud
+          if [ "$CLOUD_INPUT" == "azure" ]; then
+            if [ "$HAS_AZURE" != "true" ]; then
+              echo "::error::Azure infrastructure not found in infra/azure/"
+              exit 1
+            fi
+            CLOUD="azure"
+          elif [ "$CLOUD_INPUT" == "auto" ]; then
+            if [ "$HAS_AZURE" == "true" ] && [ "$HAS_AWS" == "true" ]; then
+              echo "::error::Both Azure and AWS infrastructure found. Please specify cloud=azure or cloud=aws explicitly."
+              exit 1
+            elif [ "$HAS_AZURE" == "true" ]; then
+              CLOUD="azure"
+            elif [ "$HAS_AWS" == "true" ]; then
+              echo "::error::AWS deployment is not implemented for this repo yet."
+              exit 1
+            else
+              echo "::error::No infrastructure found in infra/azure/ or infra/aws/"
+              exit 1
+            fi
+          else
+            echo "::error::Invalid cloud input: $CLOUD_INPUT"
+            exit 1
+          fi
+          
+          echo "cloud=$CLOUD" >> $GITHUB_OUTPUT
+          echo "Selected cloud: $CLOUD"
+
+  # ============================================================================
+  # Stage 1: Test & Quality Gates
+  # ============================================================================
+  test:
+    name: Test & Quality Checks
+    runs-on: ubuntu-latest
+    needs: decide
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NPM_PACKAGE_TOKEN: ${{ secrets.NPM_PACKAGE_TOKEN }}
+
+      - name: Run type checking
+        run: npm run typecheck
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Check code formatting
+        run: npm run format:check
+
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Build application
+        run: npm run build
+
+  codeql:
+    name: CodeQL Security Scan
+    runs-on: ubuntu-latest
+    needs: decide
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    needs: decide
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NPM_PACKAGE_TOKEN: ${{ secrets.NPM_PACKAGE_TOKEN }}
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: false
+
+  # ============================================================================
+  # Stage 2: Build Container Image
+  # ============================================================================
+  build:
+    name: Build & Push Container Image
+    runs-on: ubuntu-latest
+    needs: [context, test, codeql, audit]
+    outputs:
+      image_ref: ${{ steps.image_ref.outputs.ref }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=${{ needs.context.outputs.environment }}-,format=short
+            type=raw,value=${{ needs.context.outputs.environment }}-latest
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NPM_PACKAGE_TOKEN=${{ secrets.NPM_PACKAGE_TOKEN }}
+
+      - name: Extract single image reference
+        id: image_ref
+        run: |
+          IMAGE_REF=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
+          echo "ref=$IMAGE_REF" >> $GITHUB_OUTPUT
+          echo "Image reference: $IMAGE_REF"
+
+  # ============================================================================
+  # Stage 3: Deploy to GREEN (Azure)
+  # ============================================================================
+  deploy_azure:
+    name: Deploy to Azure (GREEN)
+    runs-on: ubuntu-latest
+    needs: [context, decide, build]
+    if: needs.decide.outputs.cloud == 'azure'
+    environment: ${{ needs.context.outputs.environment }}
+    concurrency:
+      group: deploy-react-${{ needs.context.outputs.environment }}
+      cancel-in-progress: false
+    # No job outputs - Stage 4 uses artifact only (deploy-outputs.env)
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy GREEN revision
+        id: deploy
+        run: |
+          chmod +x scripts/ci/deploy-azure-green.sh
+          ./scripts/ci/deploy-azure-green.sh
+        env:
+          ENVIRONMENT: ${{ needs.context.outputs.environment }}
+          IMAGE_REF: ${{ needs.build.outputs.image_ref }}
+          AZURE_RESOURCE_GROUP_NAME: ${{ secrets.AZURE_RESOURCE_GROUP_NAME }}
+          AZURE_CONTAINER_APPS_ENVIRONMENT_NAME: ${{ secrets.AZURE_CONTAINER_APPS_ENVIRONMENT_NAME }}
+          AZURE_CONTAINER_APP_NAME: ${{ secrets.AZURE_CONTAINER_APP_NAME }}
+          AZURE_REGION: ${{ vars.AZURE_REGION }}
+          REGISTRY_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.NPM_PACKAGE_TOKEN }}
+          PROJECT_NAME: react-app-core
+          GITHUB_SHA: ${{ github.sha }}
+
+      - name: Upload deployment outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-outputs
+          path: deploy-outputs.env
+          retention-days: 1
+
+  # ============================================================================
+  # Stage 4: Verify GREEN + Switch Traffic (Azure)
+  # ============================================================================
+  verify_switch_azure:
+    name: Verify & Switch Traffic (Azure)
+    runs-on: ubuntu-latest
+    needs: [context, decide, deploy_azure]
+    if: needs.decide.outputs.cloud == 'azure'
+    environment: ${{ needs.context.outputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download deployment outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-outputs
+
+      - name: Load deployment outputs
+        run: |
+          echo "Loading deployment outputs from artifact..."
+          
+          if [ ! -f deploy-outputs.env ]; then
+            echo "::error::deploy-outputs.env not found in artifact"
+            exit 1
+          fi
+          
+          cat deploy-outputs.env
+          source deploy-outputs.env
+          
+          # Validate contract v1.0.0 - all required fields must be present
+          echo "Validating deploy outputs contract..."
+          MISSING_FIELDS=()
+          
+          if [ -z "${GREEN_URL:-}" ]; then
+            MISSING_FIELDS+=("GREEN_URL")
+          fi
+          
+          if [ -z "${GREEN_ID:-}" ]; then
+            MISSING_FIELDS+=("GREEN_ID")
+          fi
+          
+          # BLUE_ID can be empty for first deployment
+          if [ ! -v BLUE_ID ]; then
+            MISSING_FIELDS+=("BLUE_ID")
+          fi
+          
+          if [ -z "${ACTIVE_URL:-}" ]; then
+            MISSING_FIELDS+=("ACTIVE_URL")
+          fi
+          
+          if [ ${#MISSING_FIELDS[@]} -gt 0 ]; then
+            echo "::error::Deploy outputs contract validation failed"
+            echo "::error::Missing required fields: ${MISSING_FIELDS[*]}"
+            exit 1
+          fi
+          
+          echo "✅ Contract validation passed"
+          echo "GREEN_URL=$GREEN_URL" >> $GITHUB_ENV
+          echo "GREEN_ID=$GREEN_ID" >> $GITHUB_ENV
+          echo "BLUE_ID=$BLUE_ID" >> $GITHUB_ENV
+          echo "ACTIVE_URL=$ACTIVE_URL" >> $GITHUB_ENV
+          echo "Outputs loaded into environment variables"
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: IaC Security Check
+        run: |
+          echo "Running IaC security checks..."
+          # Install checkov
+          pip install checkov
+          
+          # Run checkov on Bicep files
+          checkov -d infra/azure --framework bicep --quiet --compact
+        continue-on-error: false
+
+      - name: Health check GREEN revision
+        id: health_check
+        run: |
+          GREEN_URL="$GREEN_URL"
+          HEALTH_ENDPOINT="${GREEN_URL}/health"
+          echo "Health checking GREEN: $HEALTH_ENDPOINT"
+          
+          MAX_ATTEMPTS=10
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS..."
+            
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 10 "$HEALTH_ENDPOINT" || echo "000")
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ GREEN is healthy (HTTP $HTTP_CODE)"
+              exit 0
+            else
+              echo "❌ Health check returned HTTP $HTTP_CODE"
+            fi
+            
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              echo "Waiting 10s before retry..."
+              sleep 10
+            fi
+          done
+          
+          echo "::error::GREEN health check failed after $MAX_ATTEMPTS attempts"
+          echo "HEALTH_CHECK_FAILED=true" >> $GITHUB_OUTPUT
+          exit 1
+
+      - name: Smoke test GREEN revision
+        id: smoke_test
+        run: |
+          GREEN_URL="$GREEN_URL"
+          echo "Running smoke tests against GREEN: $GREEN_URL"
+          
+          # Test 1: Verify index.html is accessible
+          RESPONSE=$(curl -f -s -m 10 "$GREEN_URL")
+          
+          if echo "$RESPONSE" | grep -q "<html"; then
+            echo "✅ HTML content found"
+          else
+            echo "::error::No HTML content in response"
+            echo "SMOKE_TEST_FAILED=html_missing" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          if echo "$RESPONSE" | grep -q "root"; then
+            echo "✅ React root element found"
+          else
+            echo "::error::React root element not found"
+            echo "SMOKE_TEST_FAILED=root_missing" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Test 2: Verify remoteEntry.js is accessible (remote app specific)
+          REMOTE_ENTRY_URL="${GREEN_URL}/assets/remoteEntry.js"
+          echo "Checking remote entry: $REMOTE_ENTRY_URL"
+          
+          REMOTE_ENTRY_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 10 "$REMOTE_ENTRY_URL" || echo "000")
+          
+          if [ "$REMOTE_ENTRY_CODE" != "200" ]; then
+            echo "::error::remoteEntry.js not accessible (HTTP $REMOTE_ENTRY_CODE)"
+            echo "SMOKE_TEST_FAILED=remote_entry_missing" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "✅ remoteEntry.js is accessible"
+          
+          # Test 3: Verify remoteEntry.js contains expected global
+          REMOTE_ENTRY_CONTENT=$(curl -f -s -m 10 "$REMOTE_ENTRY_URL")
+          
+          if echo "$REMOTE_ENTRY_CONTENT" | grep -q "remoteApp_core"; then
+            echo "✅ remoteEntry.js contains remoteApp_core global"
+          else
+            echo "::error::remoteEntry.js does not contain remoteApp_core global"
+            echo "SMOKE_TEST_FAILED=remote_entry_invalid" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "✅ All smoke tests passed"
+
+      - name: Switch traffic to GREEN
+        id: switch
+        run: |
+          chmod +x scripts/ci/switch-azure-bluegreen.sh
+          scripts/ci/switch-azure-bluegreen.sh
+        env:
+          AZURE_RESOURCE_GROUP_NAME: ${{ secrets.AZURE_RESOURCE_GROUP_NAME }}
+          AZURE_CONTAINER_APP_NAME: ${{ secrets.AZURE_CONTAINER_APP_NAME }}
+          GREEN_ID: ${{ env.GREEN_ID }}
+          BLUE_ID: ${{ env.BLUE_ID }}
+
+      - name: Deployment successful
+        run: |
+          echo "🎉 Deployment completed successfully!"
+          echo ""
+          echo "GREEN revision is now live:"
+          echo "  URL: $ACTIVE_URL"
+          echo "  Revision: $GREEN_ID"
+          echo ""
+          echo "Access your application at: $ACTIVE_URL"
+
+      - name: Deployment failure summary
+        if: failure()
+        run: |
+          echo "::group::❌ Deployment Verification Failed"
+          echo ""
+          echo "## Failure Analysis"
+          echo ""
+          
+          # Determine what failed
+          FAILED_STEP="unknown"
+          if [ "${{ steps.health_check.outcome }}" = "failure" ]; then
+            FAILED_STEP="Health check"
+            echo "❌ **Health Check Failed**"
+            echo "   - GREEN revision did not respond to /health endpoint"
+            echo "   - Attempted 10 times over 100 seconds"
+            echo "   - GREEN URL: $GREEN_URL/health"
+          elif [ "${{ steps.smoke_test.outcome }}" = "failure" ]; then
+            FAILED_STEP="Smoke test"
+            echo "❌ **Smoke Test Failed**"
+            echo "   - GREEN revision responded but content validation failed"
+            echo "   - GREEN URL: $GREEN_URL"
+          elif [ "${{ steps.switch.outcome }}" = "failure" ]; then
+            FAILED_STEP="Traffic switch"
+            echo "❌ **Traffic Switch Failed**"
+            echo "   - Failed to switch traffic to GREEN"
+          else
+            echo "❌ **Unknown Failure**"
+            echo "   - Check logs above for details"
+          fi
+          
+          echo ""
+          echo "## Deployment State"
+          echo "   - GREEN revision: $GREEN_ID (deployed but not live)"
+          echo "   - BLUE revision: ${BLUE_ID:-<none>}"
+          echo "   - Active URL: $ACTIVE_URL"
+          echo ""
+          echo "::endgroup::"
+          
+          # Set output for rollback step
+          echo "FAILED_STEP=$FAILED_STEP" >> $GITHUB_ENV
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "::group::🔄 Rolling Back to BLUE"
+          
+          if [ -z "$BLUE_ID" ]; then
+            echo "::warning::No BLUE revision to rollback to (first deployment)"
+            echo ""
+            echo "## Rollback Status: SKIPPED"
+            echo "   - This is the first deployment"
+            echo "   - No previous BLUE revision exists"
+            echo "   - GREEN revision remains at 0% traffic"
+            echo ""
+            echo "::endgroup::"
+            exit 0
+          fi
+          
+          echo "Initiating rollback..."
+          echo "   - Target: $BLUE_ID (previous stable revision)"
+          echo "   - Action: Set BLUE=100%, GREEN=0%"
+          echo ""
+          
+          chmod +x scripts/ci/rollback-azure-bluegreen.sh
+          if scripts/ci/rollback-azure-bluegreen.sh; then
+            echo ""
+            echo "## Rollback Status: ✅ SUCCESS"
+            echo "   - Traffic restored to BLUE revision"
+            echo "   - BLUE revision: $BLUE_ID (100% traffic)"
+            echo "   - GREEN revision: $GREEN_ID (0% traffic, available for debugging)"
+            echo "   - Active URL: $ACTIVE_URL (serving BLUE)"
+            echo ""
+            echo "The failed GREEN revision remains deployed at 0% traffic for investigation."
+          else
+            echo ""
+            echo "## Rollback Status: ❌ FAILED"
+            echo "::error::Rollback to BLUE failed!"
+            echo "::error::Manual intervention required!"
+            echo ""
+            echo "Current state is uncertain. Please check Azure Portal:"
+            echo "   - Resource Group: $AZURE_RESOURCE_GROUP_NAME"
+            echo "   - Container App: $AZURE_CONTAINER_APP_NAME"
+            exit 1
+          fi
+          
+          echo "::endgroup::"
+        env:
+          AZURE_RESOURCE_GROUP_NAME: ${{ secrets.AZURE_RESOURCE_GROUP_NAME }}
+          AZURE_CONTAINER_APP_NAME: ${{ secrets.AZURE_CONTAINER_APP_NAME }}
+          BLUE_ID: ${{ env.BLUE_ID }}
+          GREEN_ID: ${{ env.GREEN_ID }}
