@@ -48,6 +48,12 @@ export default defineConfig({
     target: 'esnext',
     minify: false,
     cssCodeSplit: false,
+    rollupOptions: {
+      input: {
+        main: './index.html',
+        initGlobal: './src/init-global.ts',
+      },
+    },
     // Module Federation plugin handles remoteEntry.js generation
     // The plugin automatically outputs:
     // - dist/remoteEntry.js (stable, non-hashed)
