@@ -29,34 +29,13 @@ if (!bootstrapFile) {
   process.exit(1);
 }
 
-// Append auto-initialization code
-// Use Module Federation's get() function to load the bootstrap module
-const autoInitCode = `
+// Do NOT append auto-initialization code to remoteEntry.js
+// The shell must explicitly import the bootstrap module after loading remoteEntry.js
+// This is the correct Module Federation pattern
 
-// Auto-initialize window.remoteApp_core
-(async function() {
-  try {
-    // Use Module Federation's get() function to load the bootstrap module
-    // This is the proper way to load exposed modules from a remote
-    const container = await get('./bootstrap');
-    const factory = await container();
-    const module = factory();
-    
-    // The module should have already set window.remoteApp_core
-    if (!window.remoteApp_core) {
-      console.warn('[remoteEntry.js] Bootstrap loaded but window.remoteApp_core not set');
-    }
-  } catch (error) {
-    console.error('[remoteEntry.js] Failed to auto-initialize:', error);
-  }
-})();
-`;
-
-// Append the code
-content += autoInitCode;
-
-// Write back
-fs.writeFileSync(remoteEntryPath, content, 'utf8');
-
-console.log('✅ remoteEntry.js modified to auto-expose window.remoteApp_core');
+console.log('✅ remoteEntry.js ready for Module Federation');
 console.log(`   Bootstrap module: ${bootstrapFile}`);
+console.log('');
+console.log('⚠️  IMPORTANT: The shell must explicitly load the bootstrap module:');
+console.log('   const remoteApp = await import("remoteApp_core/bootstrap");');
+console.log('   // Now window.remoteApp_core is available');
