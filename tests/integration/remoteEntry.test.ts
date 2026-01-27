@@ -10,11 +10,13 @@ describe('Remote Entry', () => {
   });
 
   it('exposes window.remoteApp_core', () => {
-    expect(window.remoteApp_core).toBeDefined();
-    expect(window.remoteApp_core.contractVersion).toBe('1');
+    const globalWindow = window as typeof window & { remoteApp_core?: { contractVersion: string } };
+    expect(globalWindow.remoteApp_core).toBeDefined();
+    expect(globalWindow.remoteApp_core?.contractVersion).toBe('1');
   });
 
   it('window.remoteApp_core matches exported instance', () => {
-    expect(window.remoteApp_core).toBe(remoteApp);
+    const globalWindow = window as typeof window & { remoteApp_core?: unknown };
+    expect(globalWindow.remoteApp_core).toBe(remoteApp);
   });
 });

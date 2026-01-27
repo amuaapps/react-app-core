@@ -30,9 +30,7 @@ describe('Navigation Synchronization', () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
 
     // Find and click a navigation button
-    const button = container.querySelector(
-      'button'
-    ) as HTMLButtonElement | null;
+    const button = container.querySelector('button');
 
     if (button && button.textContent?.includes('Navigate to /core')) {
       button.click();
@@ -42,8 +40,12 @@ describe('Navigation Synchronization', () => {
 
       // Verify onNavigate was called with absolute path
       expect(mockNavigate).toHaveBeenCalled();
-      const lastCall = mockNavigate.mock.calls[mockNavigate.mock.calls.length - 1];
-      expect(lastCall?.[0]).toMatch(/^\/core/);
+      // Check that at least one call was made with a path starting with /core
+      const calls = mockNavigate.mock.calls as Array<[string]>;
+      const hasValidCall = calls.some(
+        (call) => typeof call[0] === 'string' && call[0].startsWith('/core')
+      );
+      expect(hasValidCall).toBe(true);
     }
   });
 

@@ -38,8 +38,8 @@ describe('Remote App Contract', () => {
       const options: RemoteAppMountOptions = {
         basePath: '/core',
         initialPath: '/core/about',
-        onNavigate: (path: string) => {
-          console.log(path);
+        onNavigate: (_path: string) => {
+          // Navigation callback
         },
         contractVersion: '1',
       };
