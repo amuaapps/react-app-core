@@ -2,10 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
 
-const renderWithRouter = (
-  ui: React.ReactElement,
-  initialEntries = ['/']
-) => {
+const renderWithRouter = (ui: React.ReactElement, initialEntries = ['/']) => {
   return render(
     <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
   );
@@ -24,7 +21,9 @@ describe('PlaceholderPage', () => {
 
   it('calls onNavigate when navigation button is clicked', () => {
     const mockNavigate = jest.fn();
-    renderWithRouter(<PlaceholderPage basePath="/core" onNavigate={mockNavigate} />);
+    renderWithRouter(
+      <PlaceholderPage basePath="/core" onNavigate={mockNavigate} />
+    );
 
     const button = screen.getByText('Navigate to /core');
     fireEvent.click(button);
@@ -34,7 +33,9 @@ describe('PlaceholderPage', () => {
 
   it('allows custom path navigation', () => {
     const mockNavigate = jest.fn();
-    renderWithRouter(<PlaceholderPage basePath="/core" onNavigate={mockNavigate} />);
+    renderWithRouter(
+      <PlaceholderPage basePath="/core" onNavigate={mockNavigate} />
+    );
 
     const input = screen.getByPlaceholderText('/core/custom');
     const goButton = screen.getByText('Go');

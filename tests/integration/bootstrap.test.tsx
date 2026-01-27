@@ -27,7 +27,7 @@ describe('Bootstrap Integration', () => {
     expect(remoteApp.contractVersion).toBe('1');
   });
 
-  it('successfully mounts the app', async () => {
+  it('successfully mounts the app', () => {
     const result = remoteApp.mount(container, {
       basePath: '/core',
       initialPath: '/core',
@@ -36,20 +36,17 @@ describe('Bootstrap Integration', () => {
 
     expect(result.success).toBe(true);
     expect(result.error).toBeUndefined();
+  });
 
-    it.skip('unmounts cleanly', async () => {
-      remoteApp.mount(container, {
-        basePath: '/core',
-        initialPath: '/core',
-      });
-
-      const result = remoteApp.unmount();
-      expect(result.success).toBe(true);
-      expect(container.innerHTML).toBe('');
+  it.skip('unmounts cleanly', () => {
+    remoteApp.mount(container, {
+      basePath: '/core',
+      initialPath: '/core',
     });
 
-    // Wait for React to render
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    const result = remoteApp.unmount();
+    expect(result.success).toBe(true);
+    expect(container.innerHTML).toBe('');
   });
 
   it('fails to mount without a container', () => {
