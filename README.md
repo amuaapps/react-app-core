@@ -108,8 +108,8 @@ The production build creates both a standalone SPA and a remote entry for shell 
 ```
 dist/
 ├── index.html                    # SPA entry point for standalone debugging
-├── remoteEntry.js                # Stable (non-hashed) remote entry for shell
 ├── assets/
+│   ├── remoteEntry.js           # Stable (non-hashed) remote entry for shell
 │   ├── style-*.css              # Hashed stylesheets
 │   ├── index-*.js               # Hashed SPA chunks
 │   ├── __federation_*.js        # Module Federation runtime chunks
@@ -117,9 +117,11 @@ dist/
 ```
 
 **Key files:**
-- `remoteEntry.js` - Stable filename for shell to load (exposes `window.remoteApp_core`)
+- `assets/remoteEntry.js` - Stable filename for shell to load (exposes `window.remoteApp_core`)
 - `index.html` - Serves the app as standalone SPA for local testing and smoke tests
 - `assets/*` - All other chunks are hashed for cache busting
+
+**Note:** The Module Federation plugin outputs `remoteEntry.js` to the `assets/` directory. The shell should load it from `${baseUrl}/assets/remoteEntry.js`.
 
 ## Deployment
 
