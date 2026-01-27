@@ -92,6 +92,16 @@ This project follows the Amua Apps coding standards defined in `docs/agents.md`:
 - **70% test coverage** - Unit + integration tests with Jest
 - **CI/CD pipeline** - 4-stage blue/green deployment (see `docs/pipeline-contract.md`)
 
+## Theme Strategy
+
+The core app avoids duplicating theme CSS when mounted by the shell:
+
+- **Shell environment**: Shell provides theme tokens globally, core app uses them
+- **Standalone dev**: `standalone.tsx` loads `globals.css` for local development
+- **Remote entry**: `bootstrap.tsx` does NOT import `globals.css` (prevents duplication)
+
+See `docs/theme-strategy.md` for full details on token-based styling and theme loading.
+
 ## Local Development
 
 The app runs standalone on port 3001 for local development. The `index.html` file mounts the remote app automatically.

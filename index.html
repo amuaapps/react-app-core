@@ -9,7 +9,9 @@
   <body>
     <div id="root"></div>
     <script type="module">
-      import remoteApp from './src/bootstrap.tsx';
+      // Use standalone.tsx which includes globals.css for local dev
+      // (shell provides these tokens when running as remote app)
+      import remoteApp from './src/standalone.tsx';
       
       // Mount the app for local development
       const container = document.getElementById('root');

@@ -1,7 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
-import './styles/globals.css';
+// NOTE: Do NOT import globals.css here - the shell already loads theme tokens globally
+// For standalone dev, globals.css is imported in index.html via main.tsx
 import {
   REMOTE_APP_CONTRACT_VERSION,
   RemoteAppErrorType,
