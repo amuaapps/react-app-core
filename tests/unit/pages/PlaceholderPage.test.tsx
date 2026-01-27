@@ -1,9 +1,14 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
 
-const renderWithRouter = (ui: React.ReactElement, basePath = '/core') => {
-  return render(<BrowserRouter basename={basePath}>{ui}</BrowserRouter>);
+const renderWithRouter = (
+  ui: React.ReactElement,
+  initialEntries = ['/']
+) => {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
+  );
 };
 
 describe('PlaceholderPage', () => {
@@ -19,7 +24,7 @@ describe('PlaceholderPage', () => {
 
   it('calls onNavigate when navigation button is clicked', () => {
     const mockNavigate = jest.fn();
-    renderWithRouter(<PlaceholderPage onNavigate={mockNavigate} />);
+    renderWithRouter(<PlaceholderPage basePath="/core" onNavigate={mockNavigate} />);
 
     const button = screen.getByText('Navigate to /core');
     fireEvent.click(button);
@@ -29,7 +34,7 @@ describe('PlaceholderPage', () => {
 
   it('allows custom path navigation', () => {
     const mockNavigate = jest.fn();
-    renderWithRouter(<PlaceholderPage onNavigate={mockNavigate} />);
+    renderWithRouter(<PlaceholderPage basePath="/core" onNavigate={mockNavigate} />);
 
     const input = screen.getByPlaceholderText('/core/custom');
     const goButton = screen.getByText('Go');
@@ -41,7 +46,7 @@ describe('PlaceholderPage', () => {
   });
 
   it('has accessible headings and landmarks', () => {
-    renderWithRouter(<PlaceholderPage />);
+    renderWithRouter(<PlaceholderPage basePath="/core" />);
 
     expect(screen.getByRole('main')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
