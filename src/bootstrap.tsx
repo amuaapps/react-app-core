@@ -2,43 +2,38 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import './styles/globals.css';
-
-interface MountOptions {
-  basePath?: string;
-  initialPath?: string;
-  onNavigate?: (path: string) => void;
-  contractVersion?: string;
-}
-
-interface MountResult {
-  success: boolean;
-  error?: string;
-}
-
-interface RemoteAppCore {
-  contractVersion: string;
-  mount: (container: HTMLElement, options?: MountOptions) => MountResult;
-  unmount: () => void;
-}
+import {
+  REMOTE_APP_CONTRACT_VERSION,
+  RemoteAppErrorType,
+  type RemoteAppInstance,
+  type RemoteAppMountOptions,
+  type RemoteAppMountResult,
+} from '@/lib/remote-app-contract';
 
 let root: ReactDOM.Root | null = null;
 
-const remoteApp: RemoteAppCore = {
-  contractVersion: '1',
+const remoteApp: RemoteAppInstance = {
+  contractVersion: REMOTE_APP_CONTRACT_VERSION,
 
-  mount(container: HTMLElement, options: MountOptions = {}): MountResult {
+  mount(
+    container: HTMLElement,
+    options: RemoteAppMountOptions = {}
+  ): RemoteAppMountResult {
     try {
       if (!container) {
         return {
           success: false,
-          error: 'Container element is required',
+          error: `${RemoteAppErrorType.MISSING_CONTAINER}: Container element is required`,
         };
       }
 
-      if (options.contractVersion && options.contractVersion !== '1') {
+      if (
+        options.contractVersion &&
+        options.contractVersion !== REMOTE_APP_CONTRACT_VERSION
+      ) {
         return {
           success: false,
-          error: `Unsupported contract version: ${options.contractVersion}. Expected: 1`,
+          error: `${RemoteAppErrorType.INVALID_CONTRACT_VERSION}: Unsupported contract version: ${options.contractVersion}. Expected: ${REMOTE_APP_CONTRACT_VERSION}`,
         };
       }
 
@@ -57,7 +52,7 @@ const remoteApp: RemoteAppCore = {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: `${RemoteAppErrorType.MOUNT_FAILED}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   },
@@ -72,8 +67,9 @@ const remoteApp: RemoteAppCore = {
 
 // Expose the remote app instance globally
 if (typeof window !== 'undefined') {
-  (window as typeof window & { remoteApp_core: RemoteAppCore }).remoteApp_core =
-    remoteApp;
+  (
+    window as typeof window & { remoteApp_core: RemoteAppInstance }
+  ).remoteApp_core = remoteApp;
 }
 
 export default remoteApp;

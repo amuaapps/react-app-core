@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { PlaceholderPage } from '@/pages/PlaceholderPage';
+import { useEffect, useMemo } from 'react';
+import { RouterProvider, useNavigate } from 'react-router-dom';
+import { createCoreRouter } from '@/lib/router';
 
 interface AppProps {
   basePath?: string;
@@ -8,22 +9,24 @@ interface AppProps {
 }
 
 export function App({ basePath = '/core', initialPath, onNavigate }: AppProps) {
-  const [currentPath, setCurrentPath] = useState(initialPath || basePath);
+  const router = useMemo(
+    () => createCoreRouter(basePath, onNavigate),
+    [basePath, onNavigate]
+  );
 
   useEffect(() => {
-    if (initialPath) {
-      setCurrentPath(initialPath);
-    }
-  }, [initialPath]);
+    if (initialPath && router) {
+      // Extract the path relative to basePath
+      const relativePath = initialPath.startsWith(basePath)
+        ? initialPath.slice(basePath.length) || '/'
+        : '/';
 
-  const handleNavigate = (path: string) => {
-    setCurrentPath(path);
-    if (onNavigate) {
-      onNavigate(path);
+      // Navigate to the initial path
+      router.navigate(relativePath).catch((error) => {
+        console.error('Failed to navigate to initial path:', error);
+      });
     }
-  };
+  }, [initialPath, basePath, router]);
 
-  return (
-    <PlaceholderPage currentPath={currentPath} onNavigate={handleNavigate} />
-  );
+  return <RouterProvider router={router} />;
 }

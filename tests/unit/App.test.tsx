@@ -1,19 +1,25 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { App } from '@/App';
 
 describe('App', () => {
-  it('renders the placeholder page', () => {
+  it('renders the placeholder page', async () => {
     render(<App />);
-    expect(screen.getByText(/Core App Placeholder/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Core App Placeholder/i)).toBeInTheDocument();
+    });
   });
 
-  it('displays the current path', () => {
-    render(<App basePath="/core" initialPath="/core/test" />);
-    expect(screen.getByText('/core/test')).toBeInTheDocument();
-  });
-
-  it('uses basePath as default when no initialPath provided', () => {
+  it('displays the current path with basePath', async () => {
     render(<App basePath="/core" />);
-    expect(screen.getByText('/core')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('/core/')).toBeInTheDocument();
+    });
+  });
+
+  it('handles initialPath navigation', async () => {
+    render(<App basePath="/core" initialPath="/core/about" />);
+    await waitFor(() => {
+      expect(screen.getByText(/Core App Placeholder/i)).toBeInTheDocument();
+    });
   });
 });

@@ -1,15 +1,20 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 interface PlaceholderPageProps {
-  currentPath?: string;
+  basePath?: string;
   onNavigate?: (path: string) => void;
 }
 
 export function PlaceholderPage({
-  currentPath = '/',
+  basePath = '/core',
   onNavigate,
 }: PlaceholderPageProps) {
+  const location = useLocation();
   const [inputPath, setInputPath] = useState('');
+
+  // Construct full path from basePath and current route
+  const currentPath = `${basePath}${location.pathname}`;
 
   const handleNavigate = (path: string) => {
     if (onNavigate) {
