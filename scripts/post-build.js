@@ -30,12 +30,18 @@ if (!bootstrapFile) {
 }
 
 // Append auto-initialization code
+// Use absolute path from the current script's location
 const autoInitCode = `
 
 // Auto-initialize window.remoteApp_core
 (async function() {
   try {
-    const bootstrap = await import('./${bootstrapFile}');
+    // Get the base URL from the current script location
+    const scriptUrl = document.currentScript?.src || import.meta.url;
+    const baseUrl = scriptUrl.substring(0, scriptUrl.lastIndexOf('/') + 1);
+    const bootstrapUrl = baseUrl + '${bootstrapFile}';
+    
+    const bootstrap = await import(bootstrapUrl);
     if (!window.remoteApp_core) {
       console.warn('[remoteEntry.js] Bootstrap loaded but window.remoteApp_core not set');
     }
