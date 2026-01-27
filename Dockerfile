@@ -9,7 +9,7 @@ COPY package*.json ./
 # Install dependencies (including devDependencies for build)
 ARG NPM_PACKAGE_TOKEN
 RUN echo "//npm.pkg.github.com/:_authToken=${NPM_PACKAGE_TOKEN}" > .npmrc && \
-    npm ci && \
+    npm install && \
     rm -f .npmrc
 
 # Copy source files
