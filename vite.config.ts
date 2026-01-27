@@ -46,5 +46,20 @@ export default defineConfig({
     target: 'esnext',
     minify: false,
     cssCodeSplit: false,
+    rollupOptions: {
+      input: {
+        main: './index.html',
+        remoteEntry: './src/remoteEntry.ts',
+      },
+      output: {
+        entryFileNames: (chunkInfo) => {
+          // Keep remoteEntry.js stable (non-hashed) for shell to load
+          if (chunkInfo.name === 'remoteEntry') {
+            return 'remoteEntry.js';
+          }
+          return 'assets/[name]-[hash].js';
+        },
+      },
+    },
   },
 });
