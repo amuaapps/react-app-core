@@ -70,7 +70,7 @@ describe('Bootstrap Integration', () => {
     expect(result.error).toContain('Unsupported contract version');
   });
 
-  it.skip('accepts onNavigate callback', () => {
+  it.skip('accepts onNavigate callback', async () => {
     const mockNavigate = jest.fn();
 
     const result = remoteApp.mount(container, {
@@ -82,7 +82,6 @@ describe('Bootstrap Integration', () => {
     expect(result.success).toBe(true);
 
     // Wait for React to render
-    // await new Promise((resolve) => setTimeout(resolve, 100));
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     // The callback is passed to the app but not called during mount
