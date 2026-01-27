@@ -67,10 +67,18 @@ const remoteApp: RemoteAppInstance = {
 };
 
 // Expose the remote app instance globally
+// This MUST happen immediately when this module loads
 if (typeof window !== 'undefined') {
   (
     window as typeof window & { remoteApp_core: RemoteAppInstance }
   ).remoteApp_core = remoteApp;
+  
+  // Log for debugging
+  console.log('[remoteApp_core] Exposed on window.remoteApp_core', {
+    contractVersion: remoteApp.contractVersion,
+    hasMountFunction: typeof remoteApp.mount === 'function',
+    hasUnmountFunction: typeof remoteApp.unmount === 'function',
+  });
 }
 
 export default remoteApp;

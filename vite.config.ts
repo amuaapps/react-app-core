@@ -12,6 +12,8 @@ export default defineConfig({
       exposes: {
         './bootstrap': './src/bootstrap.tsx',
       },
+      // Ensure bootstrap is loaded immediately to expose window.remoteApp_core
+      remotes: {},
       shared: {
         react: {
           singleton: true,
