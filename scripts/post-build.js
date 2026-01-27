@@ -30,19 +30,19 @@ if (!bootstrapFile) {
 }
 
 // Append auto-initialization code
-// The remoteEntry.js is a module, so we can use import.meta.url at the top level
+// Use Module Federation's get() function to load the bootstrap module
 const autoInitCode = `
 
 // Auto-initialize window.remoteApp_core
-// Capture import.meta.url at module top level before async function
-const __remoteEntryUrl = import.meta.url;
 (async function() {
   try {
-    // Get the base URL from the module's import.meta.url
-    const baseUrl = __remoteEntryUrl.substring(0, __remoteEntryUrl.lastIndexOf('/') + 1);
-    const bootstrapUrl = baseUrl + '${bootstrapFile}';
+    // Use Module Federation's get() function to load the bootstrap module
+    // This is the proper way to load exposed modules from a remote
+    const container = await get('./bootstrap');
+    const factory = await container();
+    const module = factory();
     
-    const bootstrap = await import(bootstrapUrl);
+    // The module should have already set window.remoteApp_core
     if (!window.remoteApp_core) {
       console.warn('[remoteEntry.js] Bootstrap loaded but window.remoteApp_core not set');
     }
