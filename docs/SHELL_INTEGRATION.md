@@ -79,24 +79,39 @@ declare global {
 
 ### 3. Load the Bootstrap Module
 
-**Use the container's `get()` function** to load the bootstrap module:
+**CRITICAL FIX:** The shell's current loader is checking `window.remoteApp_core` immediately after loading the container, but it needs to call `get()` first to load the bootstrap module.
+
+**Current shell code (INCORRECT):**
+```typescript
+// ❌ This checks too early - container doesn't have mount() function
+if (window.remoteApp_core && typeof window.remoteApp_core.mount === 'function') {
+  return window.remoteApp_core;
+}
+```
+
+**Correct implementation:**
 
 ```typescript
-// In your shell's remote loader
+// In your shell's remote loader (loader.ts)
 async function loadCoreApp() {
   try {
-    // Use the container's get() function to load bootstrap
+    // Step 1: Verify container is available
+    if (!window.remoteApp_core || typeof window.remoteApp_core.get !== 'function') {
+      throw new Error('Module Federation container not available');
+    }
+    
+    // Step 2: Use container's get() to load bootstrap module
     const factory = await window.remoteApp_core.get('./bootstrap');
     const module = factory();
     
-    // The bootstrap module exports the RemoteAppInstance
-    // and also sets window.remoteApp_core to the instance
-    if (window.remoteApp_core && typeof window.remoteApp_core.mount === 'function') {
-      console.log('✅ Core app loaded successfully');
-      return window.remoteApp_core;
-    } else {
+    // Step 3: Bootstrap has now replaced window.remoteApp_core with RemoteAppInstance
+    // Verify it has the mount function
+    if (!window.remoteApp_core || typeof window.remoteApp_core.mount !== 'function') {
       throw new Error('Bootstrap loaded but RemoteAppInstance not available');
     }
+    
+    console.log('✅ Core app loaded successfully');
+    return window.remoteApp_core;
   } catch (error) {
     console.error('❌ Failed to load core app:', error);
     throw error;
@@ -105,10 +120,11 @@ async function loadCoreApp() {
 ```
 
 **What happens:**
-1. `remoteEntry.js` loads and exposes `window.remoteApp_core` (the container)
-2. Shell calls `window.remoteApp_core.get('./bootstrap')` to load the bootstrap module
-3. Bootstrap module executes and **replaces** `window.remoteApp_core` with the `RemoteAppInstance`
-4. Shell can now use `window.remoteApp_core.mount()` and `unmount()`
+1. `remoteEntry.js` loads → `window.remoteApp_core = { get, init }`
+2. Shell calls `window.remoteApp_core.get('./bootstrap')` → loads bootstrap module
+3. Bootstrap executes → **replaces** `window.remoteApp_core` with `RemoteAppInstance`
+4. Shell verifies `window.remoteApp_core.mount` exists
+5. Shell can now call `mount()` and `unmount()`
 
 ### 3. Mount the Core App
 
@@ -175,11 +191,29 @@ const REMOTE_CORE_URL = {
 
 ## Troubleshooting
 
+### Placeholder stub shows instead of core app
+
+**Symptoms:**
+- Console shows "Remote app 'core' loaded successfully"
+- Placeholder stub is displayed instead of the actual core app
+- No errors, just warnings
+
+**Cause:** The shell's loader is checking for `window.remoteApp_core.mount` **before** calling `get('./bootstrap')`.
+
+**Solution:** Update the shell's loader to:
+1. First call `window.remoteApp_core.get('./bootstrap')`
+2. **Then** check for `window.remoteApp_core.mount`
+
+See the correct implementation in section 3 above.
+
 ### "Remote app did not expose an instance on window.remoteApp_core"
 
-**Cause:** The bootstrap module was not imported.
+**Cause:** The `remoteEntry.js` was not loaded or the container exposure code is missing.
 
-**Solution:** Ensure you explicitly import `'remoteApp_core/bootstrap'` after loading the remoteEntry.js.
+**Solution:** 
+- Verify `remoteEntry.js` loads successfully
+- Check that `window.remoteApp_core` exists and has `get` and `init` functions
+- Ensure you're using the latest deployment of the core app
 
 ### "Failed to fetch dynamically imported module"
 
