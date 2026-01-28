@@ -63,7 +63,7 @@ export default defineConfig({
 **The container is automatically available** after loading `remoteEntry.js`:
 
 ```typescript
-// After loading remoteEntry.js, window.remoteApp_core is available
+// After loading remoteEntry.js, the container is available at window.__remoteApp_core_container__
 // It contains the Module Federation container with get() and init() functions
 interface ModuleFederationContainer {
   get: (module: string) => Promise<() => any>;
@@ -72,7 +72,8 @@ interface ModuleFederationContainer {
 
 declare global {
   interface Window {
-    remoteApp_core: ModuleFederationContainer;
+    __remoteApp_core_container__: ModuleFederationContainer;
+    remoteApp_core: RemoteAppInstance; // Set by bootstrap after loading
   }
 }
 ```
@@ -95,24 +96,27 @@ if (window.remoteApp_core && typeof window.remoteApp_core.mount === 'function') 
 // In your shell's remote loader (loader.ts)
 async function loadCoreApp() {
   try {
-    // Step 1: Access the Module Federation container from webpack runtime
-    // The exact method depends on your Module Federation setup
-    // Option A: If using @originjs/vite-plugin-federation in the shell
-    const container = await import('remoteApp_core/bootstrap');
-    const remoteAppInstance = container.default;
+    // Step 1: Access the Module Federation container
+    const container = window.__remoteApp_core_container__;
+    if (!container || typeof container.get !== 'function') {
+      throw new Error('Module Federation container not available');
+    }
     
-    // Option B: If using webpack Module Federation
-    // const container = window.__webpack_require__.federation.remoteApp_core;
-    // const factory = await container.get('./bootstrap');
-    // const module = factory();
-    // const remoteAppInstance = module.default;
+    // Step 2: Load the bootstrap module
+    const factory = await container.get('./bootstrap');
+    const module = factory();
     
-    // Step 2: Verify it has the mount function
+    // Step 3: Get the RemoteAppInstance from module.default
+    const remoteAppInstance = module.default;
+    
+    // Step 4: Verify it has the mount function
     if (!remoteAppInstance || typeof remoteAppInstance.mount !== 'function') {
       throw new Error('Bootstrap loaded but RemoteAppInstance not available');
     }
     
     console.log('✅ Core app loaded successfully');
+    
+    // Note: window.remoteApp_core is also set by bootstrap as a side effect
     return remoteAppInstance;
   } catch (error) {
     console.error('❌ Failed to load core app:', error);
@@ -122,14 +126,17 @@ async function loadCoreApp() {
 ```
 
 **What happens:**
-1. `remoteEntry.js` loads → Module Federation container is available
-2. Shell calls `__webpack_require__.federation.remoteApp_core.get('./bootstrap')` → returns factory function
+1. `remoteEntry.js` loads → `window.__remoteApp_core_container__ = { get, init }`
+2. Shell calls `window.__remoteApp_core_container__.get('./bootstrap')` → returns factory function
 3. Shell calls `factory()` → loads and executes bootstrap module
 4. Bootstrap sets `window.remoteApp_core = remoteApp` (the `RemoteAppInstance`)
 5. Shell gets `module.default` → this is the same `RemoteAppInstance`
 6. Shell can now call `remoteAppInstance.mount()` and `unmount()`
 
-**IMPORTANT:** The shell MUST use `module.default` to get the instance. Do not rely on `window.remoteApp_core` being set by the container.
+**Key points:**
+- `window.__remoteApp_core_container__` = Module Federation container (has `get`, `init`)
+- `window.remoteApp_core` = RemoteAppInstance (has `mount`, `unmount`, `contractVersion`)
+- Always use `module.default` to get the instance after calling `factory()`
 
 ### 3. Mount the Core App
 
