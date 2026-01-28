@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { PlaceholderPage } from '@/pages/PlaceholderPage';
+import { HomePage } from '@/pages/HomePage';
 
 /**
  * Wrapper component that provides navigation handler to pages
@@ -29,5 +29,5 @@ export function RouteWrapper({
     }
   };
 
-  return <PlaceholderPage basePath={basePath} onNavigate={handleNavigate} />;
+  return <HomePage basePath={basePath} onNavigate={handleNavigate} />;
 }
