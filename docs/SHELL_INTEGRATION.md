@@ -4,11 +4,29 @@ This document explains how to integrate the **react-app-core** remote module int
 
 ## Module Federation Configuration
 
-### Core App (Remote)
+### Core App (Remote) - ✅ Already Configured
 
+The core app is **already correctly configured** in `vite.config.ts`:
+
+```typescript
+federation({
+  name: 'remoteApp_core',
+  filename: 'remoteEntry.js',
+  exposes: {
+    './bootstrap': './src/bootstrap.tsx',  // ✅ Exposes bootstrap module
+  },
+  shared: {
+    react: { singleton: true },
+    'react-dom': { singleton: true },
+  },
+})
+```
+
+**Key Details:**
 - **Remote Name:** `remoteApp_core`
-- **Exposed Module:** `./bootstrap`
+- **Exposed Module:** `./bootstrap` → `./src/bootstrap.tsx`
 - **Remote Entry URL:** `https://react-app-core-dev.reddune-3f892dde.northeurope.azurecontainerapps.io/assets/remoteEntry.js`
+- **Global Exposure:** The bootstrap module sets `window.remoteApp_core` when imported
 
 ### Shell App (Host)
 
@@ -40,23 +58,44 @@ export default defineConfig({
 });
 ```
 
-### 2. Import the Bootstrap Module
+### 2. Access the Module Federation Container
 
-**CRITICAL:** You must explicitly import the bootstrap module to expose `window.remoteApp_core`:
+**The container is automatically available** after loading `remoteEntry.js`:
+
+```typescript
+// After loading remoteEntry.js, window.remoteApp_core is available
+// It contains the Module Federation container with get() and init() functions
+interface ModuleFederationContainer {
+  get: (module: string) => Promise<() => any>;
+  init: (shared: any) => void;
+}
+
+declare global {
+  interface Window {
+    remoteApp_core: ModuleFederationContainer;
+  }
+}
+```
+
+### 3. Load the Bootstrap Module
+
+**Use the container's `get()` function** to load the bootstrap module:
 
 ```typescript
 // In your shell's remote loader
 async function loadCoreApp() {
   try {
-    // Import the bootstrap module - this sets window.remoteApp_core
-    const bootstrap = await import('remoteApp_core/bootstrap');
+    // Use the container's get() function to load bootstrap
+    const factory = await window.remoteApp_core.get('./bootstrap');
+    const module = factory();
     
-    // Now window.remoteApp_core is available
-    if (window.remoteApp_core) {
+    // The bootstrap module exports the RemoteAppInstance
+    // and also sets window.remoteApp_core to the instance
+    if (window.remoteApp_core && typeof window.remoteApp_core.mount === 'function') {
       console.log('✅ Core app loaded successfully');
       return window.remoteApp_core;
     } else {
-      throw new Error('Bootstrap loaded but window.remoteApp_core not set');
+      throw new Error('Bootstrap loaded but RemoteAppInstance not available');
     }
   } catch (error) {
     console.error('❌ Failed to load core app:', error);
@@ -64,6 +103,12 @@ async function loadCoreApp() {
   }
 }
 ```
+
+**What happens:**
+1. `remoteEntry.js` loads and exposes `window.remoteApp_core` (the container)
+2. Shell calls `window.remoteApp_core.get('./bootstrap')` to load the bootstrap module
+3. Bootstrap module executes and **replaces** `window.remoteApp_core` with the `RemoteAppInstance`
+4. Shell can now use `window.remoteApp_core.mount()` and `unmount()`
 
 ### 3. Mount the Core App
 
@@ -209,11 +254,18 @@ export const coreAppLoader = new CoreAppLoader();
 
 ## Summary
 
-**Key Points:**
+**Core App Status:**
+- ✅ Module Federation is **correctly configured** in `vite.config.ts`
+- ✅ Bootstrap module is **correctly exposed** as `./bootstrap`
+- ✅ Bootstrap module **correctly sets** `window.remoteApp_core` when imported
+- ✅ RemoteAppContract v1 is **fully implemented**
+
+**Shell Requirements:**
 1. ✅ Configure remote in Module Federation config
 2. ✅ **Explicitly import** `'remoteApp_core/bootstrap'` to expose `window.remoteApp_core`
 3. ✅ Use the RemoteAppContract interface to mount/unmount
 4. ✅ Handle navigation via `onNavigate` callback
 5. ✅ Use environment-specific remote entry URLs
 
-The core app **cannot** auto-expose `window.remoteApp_core` - the shell **must** explicitly import the bootstrap module. This is the correct Module Federation pattern.
+**Important:**
+The core app **cannot** auto-expose `window.remoteApp_core` when `remoteEntry.js` loads. The shell **must** explicitly import the bootstrap module. This is the standard Module Federation pattern - remotes do not auto-execute, hosts must explicitly import exposed modules.

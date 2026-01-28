@@ -29,13 +29,23 @@ if (!bootstrapFile) {
   process.exit(1);
 }
 
-// Do NOT append auto-initialization code to remoteEntry.js
-// The shell must explicitly import the bootstrap module after loading remoteEntry.js
-// This is the correct Module Federation pattern
+// Append code to expose the Module Federation container on window
+// This allows the shell to access the container directly
+const containerExposureCode = `
 
-console.log('✅ remoteEntry.js ready for Module Federation');
+// Expose the Module Federation container on window
+// This makes the container available as window.remoteApp_core
+if (typeof window !== 'undefined') {
+  window.remoteApp_core = { get, init };
+}
+`;
+
+// Append the code
+content += containerExposureCode;
+
+// Write back
+fs.writeFileSync(remoteEntryPath, content, 'utf8');
+
+console.log('✅ remoteEntry.js modified to expose container on window.remoteApp_core');
 console.log(`   Bootstrap module: ${bootstrapFile}`);
-console.log('');
-console.log('⚠️  IMPORTANT: The shell must explicitly load the bootstrap module:');
-console.log('   const remoteApp = await import("remoteApp_core/bootstrap");');
-console.log('   // Now window.remoteApp_core is available');
+console.log('   Container exports: get, init');
