@@ -22,8 +22,9 @@ export function HomePage({ basePath = '/core', onNavigate }: HomePageProps) {
                 Every Child Deserves a Bright Future
               </h2>
               <p className="text-lg text-muted-foreground">
-                We provide education, healthcare, and support to children in need
-                across the UK. Together, we can make a difference in their lives.
+                We provide education, healthcare, and support to children in
+                need across the UK. Together, we can make a difference in their
+                lives.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button
@@ -113,7 +114,9 @@ export function HomePage({ basePath = '/core', onNavigate }: HomePageProps) {
                 <Button
                   variant="link"
                   className="p-0 h-auto"
-                  onClick={() => handleNavigate(`${basePath}/programs/education`)}
+                  onClick={() =>
+                    handleNavigate(`${basePath}/programs/education`)
+                  }
                 >
                   Learn more →
                 </Button>
@@ -127,13 +130,15 @@ export function HomePage({ basePath = '/core', onNavigate }: HomePageProps) {
                   Healthcare Access
                 </h4>
                 <p className="text-muted-foreground">
-                  Ensuring children have access to medical care, dental services,
-                  and mental health support when they need it.
+                  Ensuring children have access to medical care, dental
+                  services, and mental health support when they need it.
                 </p>
                 <Button
                   variant="link"
                   className="p-0 h-auto"
-                  onClick={() => handleNavigate(`${basePath}/programs/healthcare`)}
+                  onClick={() =>
+                    handleNavigate(`${basePath}/programs/healthcare`)
+                  }
                 >
                   Learn more →
                 </Button>
@@ -147,13 +152,15 @@ export function HomePage({ basePath = '/core', onNavigate }: HomePageProps) {
                   After-School Activities
                 </h4>
                 <p className="text-muted-foreground">
-                  Offering sports, arts, and enrichment programs to help children
-                  develop new skills and build confidence.
+                  Offering sports, arts, and enrichment programs to help
+                  children develop new skills and build confidence.
                 </p>
                 <Button
                   variant="link"
                   className="p-0 h-auto"
-                  onClick={() => handleNavigate(`${basePath}/programs/activities`)}
+                  onClick={() =>
+                    handleNavigate(`${basePath}/programs/activities`)
+                  }
                 >
                   Learn more →
                 </Button>
@@ -173,7 +180,9 @@ export function HomePage({ basePath = '/core', onNavigate }: HomePageProps) {
                 <Button
                   variant="link"
                   className="p-0 h-auto"
-                  onClick={() => handleNavigate(`${basePath}/programs/nutrition`)}
+                  onClick={() =>
+                    handleNavigate(`${basePath}/programs/nutrition`)
+                  }
                 >
                   Learn more →
                 </Button>
@@ -213,7 +222,9 @@ export function HomePage({ basePath = '/core', onNavigate }: HomePageProps) {
                 <Button
                   variant="link"
                   className="p-0 h-auto"
-                  onClick={() => handleNavigate(`${basePath}/programs/mentorship`)}
+                  onClick={() =>
+                    handleNavigate(`${basePath}/programs/mentorship`)
+                  }
                 >
                   Learn more →
                 </Button>
@@ -230,8 +241,8 @@ export function HomePage({ basePath = '/core', onNavigate }: HomePageProps) {
                   Make a Difference Today
                 </h3>
                 <p className="text-lg text-muted-foreground">
-                  Your donation helps us provide essential services to children in
-                  need. Every contribution, no matter the size, makes a real
+                  Your donation helps us provide essential services to children
+                  in need. Every contribution, no matter the size, makes a real
                   impact.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
