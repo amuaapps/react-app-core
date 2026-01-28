@@ -106,8 +106,8 @@ async function loadCoreApp() {
     const factory = await container.get('./bootstrap');
     const module = factory();
     
-    // Step 3: Get the RemoteAppInstance from module.default
-    const remoteAppInstance = module.default;
+    // Step 3: Get the RemoteAppInstance - handle both export patterns
+    const remoteAppInstance = module.default || module;
     
     // Step 4: Verify it has the mount function
     if (!remoteAppInstance || typeof remoteAppInstance.mount !== 'function') {
