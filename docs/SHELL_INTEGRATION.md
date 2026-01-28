@@ -95,23 +95,25 @@ if (window.remoteApp_core && typeof window.remoteApp_core.mount === 'function') 
 // In your shell's remote loader (loader.ts)
 async function loadCoreApp() {
   try {
-    // Step 1: Verify container is available
-    if (!window.remoteApp_core || typeof window.remoteApp_core.get !== 'function') {
-      throw new Error('Module Federation container not available');
-    }
+    // Step 1: Access the Module Federation container from webpack runtime
+    // The exact method depends on your Module Federation setup
+    // Option A: If using @originjs/vite-plugin-federation in the shell
+    const container = await import('remoteApp_core/bootstrap');
+    const remoteAppInstance = container.default;
     
-    // Step 2: Use container's get() to load bootstrap module
-    const factory = await window.remoteApp_core.get('./bootstrap');
-    const module = factory();
+    // Option B: If using webpack Module Federation
+    // const container = window.__webpack_require__.federation.remoteApp_core;
+    // const factory = await container.get('./bootstrap');
+    // const module = factory();
+    // const remoteAppInstance = module.default;
     
-    // Step 3: Bootstrap has now replaced window.remoteApp_core with RemoteAppInstance
-    // Verify it has the mount function
-    if (!window.remoteApp_core || typeof window.remoteApp_core.mount !== 'function') {
+    // Step 2: Verify it has the mount function
+    if (!remoteAppInstance || typeof remoteAppInstance.mount !== 'function') {
       throw new Error('Bootstrap loaded but RemoteAppInstance not available');
     }
     
     console.log('✅ Core app loaded successfully');
-    return window.remoteApp_core;
+    return remoteAppInstance;
   } catch (error) {
     console.error('❌ Failed to load core app:', error);
     throw error;
@@ -120,11 +122,14 @@ async function loadCoreApp() {
 ```
 
 **What happens:**
-1. `remoteEntry.js` loads → `window.remoteApp_core = { get, init }`
-2. Shell calls `window.remoteApp_core.get('./bootstrap')` → loads bootstrap module
-3. Bootstrap executes → **replaces** `window.remoteApp_core` with `RemoteAppInstance`
-4. Shell verifies `window.remoteApp_core.mount` exists
-5. Shell can now call `mount()` and `unmount()`
+1. `remoteEntry.js` loads → Module Federation container is available
+2. Shell calls `__webpack_require__.federation.remoteApp_core.get('./bootstrap')` → returns factory function
+3. Shell calls `factory()` → loads and executes bootstrap module
+4. Bootstrap sets `window.remoteApp_core = remoteApp` (the `RemoteAppInstance`)
+5. Shell gets `module.default` → this is the same `RemoteAppInstance`
+6. Shell can now call `remoteAppInstance.mount()` and `unmount()`
+
+**IMPORTANT:** The shell MUST use `module.default` to get the instance. Do not rely on `window.remoteApp_core` being set by the container.
 
 ### 3. Mount the Core App
 
@@ -191,20 +196,24 @@ const REMOTE_CORE_URL = {
 
 ## Troubleshooting
 
-### Placeholder stub shows instead of core app
+### "Remote app does not implement required mount() function"
 
 **Symptoms:**
 - Console shows "Remote app 'core' loaded successfully"
-- Placeholder stub is displayed instead of the actual core app
-- No errors, just warnings
+- Error: "Remote app 'core' does not implement required mount() function"
+- Placeholder stub is displayed
 
-**Cause:** The shell's loader is checking for `window.remoteApp_core.mount` **before** calling `get('./bootstrap')`.
+**Cause:** The shell is not accessing `module.default` after calling `factory()`.
 
-**Solution:** Update the shell's loader to:
-1. First call `window.remoteApp_core.get('./bootstrap')`
-2. **Then** check for `window.remoteApp_core.mount`
+**Solution:** Update the shell's loader to get the RemoteAppInstance from `module.default`:
 
-See the correct implementation in section 3 above.
+```typescript
+const factory = await window.remoteApp_core.get('./bootstrap');
+const module = factory();
+const remoteAppInstance = module.default || module; // ← Get default export
+```
+
+See the complete correct implementation in section 3 above.
 
 ### "Remote app did not expose an instance on window.remoteApp_core"
 

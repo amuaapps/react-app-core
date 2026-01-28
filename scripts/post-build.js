@@ -29,23 +29,9 @@ if (!bootstrapFile) {
   process.exit(1);
 }
 
-// Append code to expose the Module Federation container on window
-// This allows the shell to access the container directly
-const containerExposureCode = `
+// No modifications needed - bootstrap.tsx handles window.remoteApp_core exposure
+// The shell should use module.default after calling get('./bootstrap')
 
-// Expose the Module Federation container on window
-// This makes the container available as window.remoteApp_core
-if (typeof window !== 'undefined') {
-  window.remoteApp_core = { get, init };
-}
-`;
-
-// Append the code
-content += containerExposureCode;
-
-// Write back
-fs.writeFileSync(remoteEntryPath, content, 'utf8');
-
-console.log('✅ remoteEntry.js modified to expose container on window.remoteApp_core');
+console.log('✅ remoteEntry.js validated');
 console.log(`   Bootstrap module: ${bootstrapFile}`);
-console.log('   Container exports: get, init');
+console.log('   Note: window.remoteApp_core will be set by bootstrap.tsx when loaded');
