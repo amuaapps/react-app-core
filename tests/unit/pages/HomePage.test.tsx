@@ -62,35 +62,31 @@ describe('HomePage', () => {
 
   it('calls onNavigate when donate button is clicked', () => {
     const mockNavigate = jest.fn();
-    renderWithRouter(
-      <HomePage basePath="/core" onNavigate={mockNavigate} />
-    );
-    
+    renderWithRouter(<HomePage basePath="/core" onNavigate={mockNavigate} />);
+
     const donateButtons = screen.getAllByText('Donate Now');
     donateButtons[0].click();
-    
+
     expect(mockNavigate).toHaveBeenCalledWith('/core/donate');
   });
 
   it('calls onNavigate when volunteer button is clicked', () => {
     const mockNavigate = jest.fn();
-    renderWithRouter(
-      <HomePage basePath="/core" onNavigate={mockNavigate} />
-    );
-    
+    renderWithRouter(<HomePage basePath="/core" onNavigate={mockNavigate} />);
+
     const volunteerButton = screen.getByText('Become a Volunteer');
     volunteerButton.click();
-    
+
     expect(mockNavigate).toHaveBeenCalledWith('/core/volunteer');
   });
 
   it('uses default basePath when not provided', () => {
     const mockNavigate = jest.fn();
     renderWithRouter(<HomePage onNavigate={mockNavigate} />);
-    
+
     const donateButtons = screen.getAllByText('Donate Now');
     donateButtons[0].click();
-    
+
     expect(mockNavigate).toHaveBeenCalledWith('/core/donate');
   });
 
@@ -102,13 +98,11 @@ describe('HomePage', () => {
 
   it('calls onNavigate when program learn more link is clicked', () => {
     const mockNavigate = jest.fn();
-    renderWithRouter(
-      <HomePage basePath="/core" onNavigate={mockNavigate} />
-    );
-    
+    renderWithRouter(<HomePage basePath="/core" onNavigate={mockNavigate} />);
+
     const learnMoreLinks = screen.getAllByText(/Learn more/);
     learnMoreLinks[0].click();
-    
+
     expect(mockNavigate).toHaveBeenCalledWith('/core/programs/education');
   });
 });
